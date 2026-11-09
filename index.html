@@ -1,0 +1,107 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>متابعة الكورس</title>
+<style>
+  :root{
+    --bg:#f4f6fb; --card:#fff; --text:#1d2433; --muted:#6b7385;
+    --done:#1f9d55; --done-bg:#e6f6ed; --pending:#c2410c; --pending-bg:#fdeee4;
+    --accent:#2b5bd7; --border:#e2e6ef;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;font-family:"Segoe UI",Tahoma,sans-serif;background:var(--bg);color:var(--text);
+       min-height:100vh;display:flex;align-items:flex-start;justify-content:center;padding:40px 16px}
+  .card{background:var(--card);border-radius:16px;box-shadow:0 6px 24px rgba(0,0,0,.07);
+        width:100%;max-width:440px;padding:28px}
+  h1{margin:0 0 6px;font-size:22px}
+  p.sub{margin:0 0 22px;color:var(--muted);font-size:14px}
+  label{display:block;font-size:14px;margin:12px 0 6px;color:var(--muted)}
+  input{width:100%;padding:12px 14px;border:1px solid var(--border);border-radius:10px;font-size:16px;direction:ltr;text-align:right}
+  input:focus{outline:2px solid var(--accent);border-color:transparent}
+  button{width:100%;margin-top:18px;padding:12px;border:0;border-radius:10px;background:var(--accent);
+         color:#fff;font-size:16px;cursor:pointer}
+  button:disabled{opacity:.5;cursor:wait}
+  #status{margin-top:12px;font-size:13px;color:var(--muted);text-align:center}
+  #result{display:none;margin-top:24px}
+  .hello{font-size:16px;margin-bottom:12px}
+  .row{display:flex;justify-content:space-between;align-items:center;padding:12px 14px;
+       border:1px solid var(--border);border-radius:10px;margin-bottom:8px}
+  .name{font-weight:600}
+  .badge{padding:4px 12px;border-radius:999px;font-size:13px;font-weight:600}
+  .badge.done{background:var(--done-bg);color:var(--done)}
+  .badge.pending{background:var(--pending-bg);color:var(--pending)}
+  .summary{margin-top:12px;color:var(--muted);font-size:14px;text-align:center}
+  .warn{margin-bottom:12px;padding:10px 12px;border-radius:10px;background:#fff7e0;color:#8a5a00;font-size:14px}
+</style>
+</head>
+<body>
+<div class="card">
+  <h1>متابعة الكورس</h1>
+  <p class="sub">اكتب الـ ID بتاعك عشان تشوف الملفات اللي خلصتها</p>
+
+  <form id="form">
+    <label for="sid">ID الطالب</label>
+    <input id="sid" inputmode="numeric" autocomplete="off" required>
+    <button type="submit" id="btn">عرض النتيجة</button>
+  </form>
+  <div id="status"></div>
+
+  <div id="result"></div>
+</div>
+
+<script>
+/* ================================================================
+   لينك الـ Apps Script (Web app) بين علامتي التنصيص.
+   الصفحة بتسأل عن ID واحد بس، ومفيهاش أي بيانات لطلاب تانيين.
+   ================================================================ */
+const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxepE7IDhYbW35Y8UBw27C3IM_ubwdMqRf3IyeDFyPaouXBf4pZkg6JQwt_WTmX9V4sTw/exec";
+
+const COURSES = ["Word", "PowerPoint", "Excel", "Access"];
+
+document.getElementById("form").addEventListener("submit", async e => {
+  e.preventDefault();
+  const id = document.getElementById("sid").value.replace(/\D/g, "");
+  const box = document.getElementById("result");
+  const status = document.getElementById("status");
+  const btn = document.getElementById("btn");
+  box.style.display = "none";
+
+  if (id.length !== 7) {
+    status.textContent = "الـ ID لازم يكون 7 أرقام.";
+    return;
+  }
+
+  btn.disabled = true;
+  status.textContent = "جاري البحث...";
+  let result;
+  try {
+    const res = await fetch(SCRIPT_URL + "?id=" + id);
+    if (!res.ok) throw new Error(res.status);
+    result = (await res.json()).result;
+  } catch (err) {
+    status.textContent = "حصلت مشكلة في الاتصال، جرّب تاني بعد شوية.";
+    btn.disabled = false;
+    return;
+  }
+  btn.disabled = false;
+  status.textContent = "";
+
+  const doneList = COURSES.filter(c => result[c]);
+  const rows = COURSES.map(c => {
+    const ok = !!result[c];
+    return `<div class="row"><span class="name">${c}</span>
+      <span class="badge ${ok ? "done" : "pending"}">${ok ? "Done ✔" : "لم يُنجز بعد"}</span></div>`;
+  }).join("");
+
+  const warn = doneList.length === 0
+    ? `<div class="warn">الـ ID ده مش متسجل في أي ملف. اتأكد إنك كاتبه صح.</div>` : "";
+
+  box.innerHTML = `<div class="hello">ID: <b>${id}</b></div>${warn}${rows}
+    <div class="summary">خلصت ${doneList.length} من ${COURSES.length}</div>`;
+  box.style.display = "block";
+});
+</script>
+</body>
+</html>
